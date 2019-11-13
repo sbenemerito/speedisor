@@ -22,18 +22,49 @@ const db = new sqlite.Database(databaseDir, error => {
 
 db.serialize(() => {
   db.run(`
-    CREATE TABLE IF NOT EXISTS Users (
+    CREATE TABLE IF NOT EXISTS Operator (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       first_name TEXT,
       last_name TEXT,
       username TEXT NOT NULL,
       password TEXT NOT NULL,
-      wins_blue INTEGER DEFAULT 0 NOT NULL,
-      wins_white INTEGER DEFAULT 0 NOT NULL,
-      losses_blue INTEGER DEFAULT 0 NOT NULL,
-      losses_white INTEGER DEFAULT 0 NOT NULL,
-      is_admin INTEGER DEFAULT 0 NOT NULL,
-      date_created DEFAULT CURRENT_DATE NOT NULL
+      display_image TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      date_created TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      date_updated TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS Driver (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT,
+      last_name TEXT,
+      username TEXT NOT NULL,
+      password TEXT NOT NULL,
+      display_image TEXT,
+      is_active INTEGER DEFAULT 0 NOT NULL,
+      date_created TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      date_updated TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      plate_number TEXT NOT NULL,
+      address TEXT NOT NULL,
+      contact_number TEXT NOT NULL,
+      taxi_name TEXT NOT NULL,
+      operator_id INTEGER,
+      FOREIGN KEY(operator_id) REFERENCES Operator(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS Violation (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location TEXT,
+      max_speed REAL,
+      driver_speed REAL,
+      date_created TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      date_updated TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      driver_id INTEGER,
+      FOREIGN KEY(driver_id) REFERENCES Driver(id)
     )
   `);
 });

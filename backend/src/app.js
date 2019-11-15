@@ -12,6 +12,7 @@ import jwt from 'jsonwebtoken';
 // Use .env config
 dotenv.config();
 
+
 // Database initialization
 const databaseDir = process.env.DATABASE || 'db.sqlite3';
 const sqlite = sqlite3.verbose();
@@ -69,6 +70,7 @@ db.serialize(() => {
   `);
 });
 
+
 // Express setup
 const PORT = process.env.PORT || 5000;
 
@@ -81,21 +83,111 @@ app.use(bodyParser.urlencoded({ extended:false }));
 // CORS middleware
 app.use(cors())
 
+
 // Live data is stored in memory
 let socketMap = {};
 
 app.get('/', (req, res) => res.json({ msg: 'API is working!' }));
 
-// Sockets handler
-const getSecret = () => [...Array(30)].map(() => Math.random().toString(36)[2]).join('');
-console.log(getSecret());
 
+// Sockets handler
 const server = http.createServer(app);
 const io = socketIO(server);
 
 io.on('connection', socket => {
   console.log('client connected on websocket');
 });
+
+
+// Authentication endpoints
+app.post('/login/operator', (req, res, next) => {
+  const { username, password } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required', key: 'usernameMissing' });
+  }
+
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required', key: 'passwordMissing' });
+  }
+
+  db.serialize(() => {
+    db.get(`SELECT * FROM Operator WHERE username = '${username}'`, (error, user) => {
+      if (user === undefined) {
+        return res.status(400).json({
+          error: 'There is no account with the given username',
+          key: 'wrongUsername'
+        });
+      }
+
+      bcrypt.compare(password, user.password, (err, isEqual) => {
+        if (!isEqual) {
+          return res.status(400).json({ error: 'Invalid password', key: 'wrongPassword' });
+        }
+
+        if (socketMap[`uid${user.id}`] !== undefined) {
+          return res.status(400).json({ error: 'The account is already online.', key: 'duplicateLogin' });
+        }
+
+        const token = jwt.sign(
+          { id: user.id, role: 'operator' },
+          process.env.SECRET,
+          { expiresIn: '24h' }
+        );
+
+        // do not return password
+        user.password = undefined;
+
+        res.json({ user, token });
+      });
+    });
+  });
+});
+
+app.post('/login/driver', (req, res, next) => {
+  const { username, password } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required', key: 'usernameMissing' });
+  }
+
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required', key: 'passwordMissing' });
+  }
+
+  db.serialize(() => {
+    db.get(`SELECT * FROM Driver WHERE username = '${username}'`, (error, user) => {
+      if (user === undefined) {
+        return res.status(400).json({
+          error: 'There is no account with the given username',
+          key: 'wrongUsername'
+        });
+      }
+
+      bcrypt.compare(password, user.password, (err, isEqual) => {
+        if (!isEqual) {
+          return res.status(400).json({ error: 'Invalid password', key: 'wrongPassword' });
+        }
+
+        if (socketMap[`uid${user.id}`] !== undefined) {
+          return res.status(400).json({ error: 'The account is already online.', key: 'duplicateLogin' });
+        }
+
+        const token = jwt.sign(
+          { id: user.id, role: 'operator' },
+          process.env.SECRET,
+          { expiresIn: '24h' }
+        );
+
+        // do not return password
+        user.password = undefined;
+
+        res.json({ user, token });
+      });
+    });
+  });
+});
+
 
 // Periodic cleaning every hour here
 const hourInMilliseconds = 3600;

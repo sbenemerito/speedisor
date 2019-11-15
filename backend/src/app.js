@@ -188,6 +188,59 @@ app.post('/login/driver', (req, res, next) => {
   });
 });
 
+app.post('/signup', (req, res, next) => {
+  const { first_name, last_name, username, password, password2 } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required', key: 'usernameMissing' });
+  }
+
+  if (username.length > 16) {
+    return res.status(400).json({ error: 'Username exceeded max length: 16', key: 'usernameTooLong' });
+  }
+
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required', key: 'passwordMissing' });
+  }
+
+  if (password !== password2) {
+    return res.status(400).json({ error: 'Passwords do not match', key: 'passwordsNotMatching' });
+  }
+
+  db.serialize(() => {
+    db.get(`SELECT * FROM Operator WHERE username = '${username}'`, (error, user) => {
+      if (user !== undefined) {
+        return res.status(400).json({ error: 'Username is already taken', key: 'takenUsername'});
+      }
+
+      const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
+      const insertQuery = `
+        INSERT INTO Operator(first_name, last_name, username, password)
+        VALUES ('${first_name || ''}', '${last_name || ''}', '${username}', '${hashedPassword}')
+      `;
+
+      db.run(insertQuery, (error, user) => {
+        if (error) {
+          return res.status(500).json({ error: 'Unexpected error', details: error });
+        }
+
+        db.get(`SELECT * FROM Operator WHERE username = '${username}'`, (error, user) => {
+          const token = jwt.sign(
+            { id: user.id, role: 'operator' },
+            process.env.SECRET,
+            { expiresIn: '24h' }
+          );
+
+          // do not return password
+          user.password = undefined;
+
+          res.json({ user, token });
+        });
+      });
+    });
+  });
+});
+
 
 // Periodic cleaning every hour here
 const hourInMilliseconds = 3600;

@@ -1,0 +1,52 @@
+{
+  "name": "speedisor",
+  "version": "1.0.0",
+  "description": "Web backend for Speedisor",
+  "scripts": {
+    "test": "jest",
+    "start": "npm run prod",
+    "server": "babel-node ./src/app",
+    "server:prod": "node ./dist/app",
+    "dev": "NODE_ENV=development npm run server",
+    "watch": "nodemon",
+    "clean": "rimraf dist",
+    "build": "babel ./src --out-dir dist",
+    "prod": "NODE_ENV=production npm run clean && npm run build && npm run server:prod"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sbenemerito/speedisor.git"
+  },
+  "keywords": [
+    "yonmoque",
+    "server",
+    "websockets",
+    "socketio"
+  ],
+  "author": "Sam Benemerito",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sbenemerito/speedisor/issues"
+  },
+  "homepage": "https://github.com/sbenemerito/speedisor#readme",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^8.1.0",
+    "express": "^4.17.1",
+    "jsonwebtoken": "^8.5.1",
+    "rimraf": "^2.6.3",
+    "socket.io": "^2.2.0",
+    "sqlite3": "^4.1.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.5.5",
+    "@babel/core": "^7.5.5",
+    "@babel/node": "^7.5.5",
+    "@babel/preset-env": "^7.5.5",
+    "jest": "^24.8.0",
+    "nodemon": "^1.19.1",
+    "socket.io-client": "^2.2.0"
+  }
+}

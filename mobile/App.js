@@ -3,8 +3,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import * as Permissions from 'expo-permissions';
 
+import Login from './components/Login';
+
 export default class App extends React.Component {
   state = {
+    user: null,
     location: null
   }
 
@@ -16,14 +19,17 @@ export default class App extends React.Component {
       distanceInterval: 1,
     }, location => {
       this.setState({ location });
-      console.log(location, 'location');
     });
   }
 
-  render() {
-    const { location } = this.state;
+  setUser(user) {
+    this.setState({ user });
+  }
 
-    return (
+  render() {
+    const { location, user } = this.state;
+
+    return user === null ? <Login/> : (
       <View style={styles.container}>
         <Text>
         {

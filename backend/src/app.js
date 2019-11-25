@@ -83,8 +83,34 @@ app.use(bodyParser.urlencoded({ extended:false }));
 // CORS middleware
 app.use(cors())
 
+// Utility function(s)
+const getUserFromToken = (token) => {
+  return new Promise((resolve, reject) => {
+    if (!token) resolve(null);
+
+    try {
+      /*
+       * Try to decode & verify the JWT token
+       * The token contains user's id ( it can contain more informations )
+       * and this is saved in req.user object
+       */
+      const userFromToken = jwt.verify(token, process.env.SECRET);
+      const tableName = userFromToken.role === 'operator' ? 'Operator' : 'Driver';
+
+      db.serialize(() => {
+        db.get(`SELECT * FROM ${tableName} WHERE id = ${userFromToken.id}`, (error, user) => {
+          if (user !== undefined) resolve({ ...user, password: undefined, role: userFromToken.role });
+          resolve(null);
+        });
+      });
+    } catch (err) {
+      resolve(null);
+    }
+  });
+};
 
 // Live data is stored in memory
+let liveData = {};
 let socketMap = {};
 
 app.get('/', (req, res) => res.json({ msg: 'API is working!' }));
@@ -96,6 +122,53 @@ const io = socketIO(server);
 
 io.on('connection', socket => {
   console.log('client connected on websocket');
+
+  socket.on('bind token', async (token) => {
+    const userFromToken = await getUserFromToken(token);
+
+    socketMap[socket.id] = userFromToken;
+
+    if (userFromToken.role === 'operator') {
+      socket.join(`${userFromToken.id}`);
+    }
+  });
+
+  socket.on('stat update', async ({ userDetails, stats, token }) => {
+    const userFromToken = await getUserFromToken(token);
+
+    if (userFromToken.role === 'driver' && userDetails.id === userFromToken.id) {
+      const operatorKey = `${userFromToken.operator_id}`;
+
+      if (liveData[operatorKey] === undefined) {
+        liveData[operatorKey] = {};
+      }
+
+      if (liveData[operatorKey][userFromToken.id] === undefined) {
+        liveData[operatorKey][userFromToken.id] = {};
+      }
+
+      liveData[operatorKey][userFromToken.id] = stats;
+      socket.to(operatorKey).emit('new stats', liveData[operatorKey]);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    let disconnectedUser = null;
+
+    Object.keys(socketMap).some(item => {
+      if (socketMap[item] === socket.id) {
+        disconnectedUser = socketMap[item];
+        delete socketMap[item];
+        return true;
+      }
+
+      return false;
+    });
+
+    if (liveDetails[disconnectedUser.operator_id]) {
+      liveDetails[disconnectedUser.operator_id][disconnectedUser.id] = undefined;
+    }
+  }
 });
 
 
@@ -174,7 +247,7 @@ app.post('/login/driver', (req, res, next) => {
         }
 
         const token = jwt.sign(
-          { id: user.id, role: 'operator' },
+          { id: user.id, role: 'driver' },
           process.env.SECRET,
           { expiresIn: '24h' }
         );

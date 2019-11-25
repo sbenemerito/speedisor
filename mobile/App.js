@@ -8,7 +8,8 @@ import Login from './components/Login';
 export default class App extends React.Component {
   state = {
     user: null,
-    location: null
+    location: null,
+    token: null
   }
 
   componentDidMount() {
@@ -22,14 +23,14 @@ export default class App extends React.Component {
     });
   }
 
-  setUser(user) {
-    this.setState({ user });
+  setAuth = ({ user, token }) => {
+    this.setState({ user, token });
   }
 
   render() {
     const { location, user } = this.state;
 
-    return user === null ? <Login/> : (
+    return user === null ? <Login setAuth={this.setAuth} /> : (
       <View style={styles.container}>
         <Text>
         {

@@ -3,6 +3,12 @@ import { StyleSheet, Text, View, Button, Image, TextInput, Alert } from 'react-n
 import * as Location from 'expo-location';
 import * as Permissions from 'expo-permissions';
 
+import api from '../utils/SpeedisorApi';
+import getEnvVars from '../environment';
+
+const { apiUrl } = getEnvVars();
+
+
 export default class App extends React.Component {
   state = {
     username: null,
@@ -18,8 +24,16 @@ export default class App extends React.Component {
   }
 
   handleLogin = () => {
-    // send request here to API
-    Alert.alert(`${username} | ${password}`);
+    const body = {
+      username: this.state.username,
+      password: this.state.password
+    };
+
+    api.post('/login/driver', body).then(response => {
+      this.props.setAuth(response.data);
+    }).catch(error => {
+      Alert.alert(error.response.data.error);
+    });
   }
 
   render() {

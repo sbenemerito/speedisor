@@ -111,6 +111,7 @@ const getUserFromToken = (token) => {
 
 // Live data is stored in memory
 let liveData = {};
+let socketMap = {};
 
 app.get('/', (req, res) => res.json({ msg: 'API is working!' }));
 
@@ -122,26 +123,52 @@ const io = socketIO(server);
 io.on('connection', socket => {
   console.log('client connected on websocket');
 
-  socket.on('operator connected', async (token) => {
+  socket.on('bind token', async (token) => {
     const userFromToken = await getUserFromToken(token);
 
+    socketMap[socket.id] = userFromToken;
+
     if (userFromToken.role === 'operator') {
-      socket.join(`operator${userFromToken.id}`);
+      socket.join(`${userFromToken.id}`);
     }
   });
 
   socket.on('stat update', async ({ userDetails, stats, token }) => {
     const userFromToken = await getUserFromToken(token);
 
-    if (userFromToken.role === 'driver')
-        socket.to(gameRoom.secret).emit('new stats', { id, type, src, dest });
-        // update current turn in game room
-        playingRooms[roomIndex].turn = (playingRooms[roomIndex].turn - 1) * -1;
-      } else {
-        socket.emit('move rejected');
+    if (userFromToken.role === 'driver' && userDetails.id === userFromToken.id) {
+      const operatorKey = `${userFromToken.operator_id}`;
+
+      if (liveData[operatorKey] === undefined) {
+        liveData[operatorKey] = {};
       }
+
+      if (liveData[operatorKey][userFromToken.id] === undefined) {
+        liveData[operatorKey][userFromToken.id] = {};
+      }
+
+      liveData[operatorKey][userFromToken.id] = stats;
+      socket.to(operatorKey).emit('new stats', liveData[operatorKey]);
     }
   });
+
+  socket.on('disconnect', () => {
+    let disconnectedUser = null;
+
+    Object.keys(socketMap).some(item => {
+      if (socketMap[item] === socket.id) {
+        disconnectedUser = socketMap[item];
+        delete socketMap[item];
+        return true;
+      }
+
+      return false;
+    });
+
+    if (liveDetails[disconnectedUser.operator_id]) {
+      liveDetails[disconnectedUser.operator_id][disconnectedUser.id] = undefined;
+    }
+  }
 });
 
 

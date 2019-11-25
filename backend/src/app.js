@@ -83,9 +83,34 @@ app.use(bodyParser.urlencoded({ extended:false }));
 // CORS middleware
 app.use(cors())
 
+// Utility function(s)
+const getUserFromToken = (token) => {
+  return new Promise((resolve, reject) => {
+    if (!token) resolve(null);
+
+    try {
+      /*
+       * Try to decode & verify the JWT token
+       * The token contains user's id ( it can contain more informations )
+       * and this is saved in req.user object
+       */
+      const userFromToken = jwt.verify(token, process.env.SECRET);
+      const tableName = userFromToken.role === 'operator' ? 'Operator' : 'Driver';
+
+      db.serialize(() => {
+        db.get(`SELECT * FROM ${tableName} WHERE id = ${userFromToken.id}`, (error, user) => {
+          if (user !== undefined) resolve({ ...user, password: undefined, role: userFromToken.role });
+          resolve(null);
+        });
+      });
+    } catch (err) {
+      resolve(null);
+    }
+  });
+};
 
 // Live data is stored in memory
-let socketMap = {};
+let liveData = {};
 
 app.get('/', (req, res) => res.json({ msg: 'API is working!' }));
 
@@ -96,6 +121,27 @@ const io = socketIO(server);
 
 io.on('connection', socket => {
   console.log('client connected on websocket');
+
+  socket.on('operator connected', async (token) => {
+    const userFromToken = await getUserFromToken(token);
+
+    if (userFromToken.role === 'operator') {
+      socket.join(`operator${userFromToken.id}`);
+    }
+  });
+
+  socket.on('stat update', async ({ userDetails, stats, token }) => {
+    const userFromToken = await getUserFromToken(token);
+
+    if (userFromToken.role === 'driver')
+        socket.to(gameRoom.secret).emit('new stats', { id, type, src, dest });
+        // update current turn in game room
+        playingRooms[roomIndex].turn = (playingRooms[roomIndex].turn - 1) * -1;
+      } else {
+        socket.emit('move rejected');
+      }
+    }
+  });
 });
 
 
@@ -174,7 +220,7 @@ app.post('/login/driver', (req, res, next) => {
         }
 
         const token = jwt.sign(
-          { id: user.id, role: 'operator' },
+          { id: user.id, role: 'driver' },
           process.env.SECRET,
           { expiresIn: '24h' }
         );

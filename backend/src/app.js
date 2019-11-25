@@ -112,6 +112,7 @@ const getUserFromToken = (token) => {
 // Live data is stored in memory
 let liveData = {};
 let socketMap = {};
+let onlineMap = {};
 
 app.get('/', (req, res) => res.json({ msg: 'API is working!' }));
 
@@ -130,6 +131,9 @@ io.on('connection', socket => {
 
     if (userFromToken.role === 'operator') {
       socket.join(`${userFromToken.id}`);
+      onlineMap[`oid${userFromToken.id}`] = true;
+    } else {
+      onlineMap[`did${userFromToken.id}`] = true;
     }
   });
 
@@ -168,7 +172,11 @@ io.on('connection', socket => {
     if (liveDetails[disconnectedUser.operator_id]) {
       liveDetails[disconnectedUser.operator_id][disconnectedUser.id] = undefined;
     }
-  }
+
+    if (onlineMap[disconnectedUser.id]) {
+      onlineMap[disconnectedUser.id] = undefined;
+    }
+  });
 });
 
 
@@ -198,7 +206,7 @@ app.post('/login/operator', (req, res, next) => {
           return res.status(400).json({ error: 'Invalid password', key: 'wrongPassword' });
         }
 
-        if (socketMap[`uid${user.id}`] !== undefined) {
+        if (onlineMap[`oid${user.id}`] !== undefined) {
           return res.status(400).json({ error: 'The account is already online.', key: 'duplicateLogin' });
         }
 
@@ -218,6 +226,7 @@ app.post('/login/operator', (req, res, next) => {
 });
 
 app.post('/login/driver', (req, res, next) => {
+  console.log('REQUEST');
   const { username, password } = req.body;
 
   if (!username) {
@@ -242,7 +251,7 @@ app.post('/login/driver', (req, res, next) => {
           return res.status(400).json({ error: 'Invalid password', key: 'wrongPassword' });
         }
 
-        if (socketMap[`uid${user.id}`] !== undefined) {
+        if (onlineMap[`did${user.id}`] !== undefined) {
           return res.status(400).json({ error: 'The account is already online.', key: 'duplicateLogin' });
         }
 
@@ -316,10 +325,10 @@ app.post('/signup', (req, res, next) => {
 
 
 // Periodic cleaning every hour here
-const hourInMilliseconds = 3600;
-const cleanData = setInterval(() => {
-  console.log('clean');
-}, hourInMilliseconds);
+// const hourInMilliseconds = 3600;
+// const cleanData = setInterval(() => {
+//   console.log('clean');
+// }, hourInMilliseconds);
 
 // Serve
 server.listen(PORT, () => {

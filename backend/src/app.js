@@ -226,7 +226,6 @@ app.post('/login/operator', (req, res, next) => {
 });
 
 app.post('/login/driver', (req, res, next) => {
-  console.log('REQUEST');
   const { username, password } = req.body;
 
   if (!username) {
@@ -323,6 +322,150 @@ app.post('/signup', (req, res, next) => {
   });
 });
 
+// Driver CRUD
+app.get('/drivers', async (req, res, next) => {
+  let token = null;
+  if (req.hasOwnProperty('headers') && req.headers.hasOwnProperty('authorization')) {
+    token = req.headers['authorization'];
+  } else {
+    return res.status(401).json({
+      error: 'Failed to authenticate token!',
+      key: 'missingToken'
+    });
+  }
+
+  const userFromToken = await getUserFromToken(token);
+
+  if (userFromToken.role === 'operator') {
+    const operatorKey = `${userFromToken.id}`;
+
+    if (liveData[operatorKey] === undefined) {
+      liveData[operatorKey] = {};
+    }
+
+    res.json(liveData[operatorKey]);
+  } else {
+    return res.status(403).json({
+      error: 'Not an operator!',
+      key: 'nonOperator'
+    });
+  }
+});
+
+app.post('/drivers/create', async (req, res, next) => {
+  let token = null;
+  if (req.hasOwnProperty('headers') && req.headers.hasOwnProperty('authorization')) {
+    token = req.headers['authorization'];
+  } else {
+    return res.status(401).json({
+      error: 'Failed to authenticate token!',
+      key: 'missingToken'
+    });
+  }
+
+  const userFromToken = await getUserFromToken(token);
+
+  if (userFromToken.role === 'operator') {
+    const {
+      first_name, last_name, username, password, password2,
+      plate_number, address, contact_number, taxi_name
+    } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required', key: 'usernameMissing' });
+    }
+
+    if (username.length > 16) {
+      return res.status(400).json({ error: 'Username exceeded max length: 16', key: 'usernameTooLong' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required', key: 'passwordMissing' });
+    }
+
+    if (password !== password2) {
+      return res.status(400).json({ error: 'Passwords do not match', key: 'passwordsNotMatching' });
+    }
+
+    db.serialize(() => {
+      db.get(`SELECT * FROM Driver WHERE username = '${username}'`, (error, user) => {
+        if (user !== undefined) {
+          return res.status(400).json({ error: 'Username is already taken', key: 'takenUsername'});
+        }
+
+        const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
+        const insertQuery = `
+          INSERT INTO Driver(
+            first_name, last_name, username, password,
+            plate_number, address, contact_number, taxi_name, operator_id)
+          VALUES (
+            '${first_name || ''}', '${last_name || ''}', '${username}', '${hashedPassword}',
+            '${plate_number || ''}', '${address || ''}', '${contact_number || ''}', '${taxi_name || ''}', ${userFromToken.operator_id})
+        `;
+
+        db.run(insertQuery, (error, user) => {
+          if (error) {
+            return res.status(500).json({ error: 'Unexpected error', details: error });
+          }
+
+          db.get(`SELECT * FROM Driver WHERE username = '${username}'`, (error, user) => {
+            // do not return password
+            user.password = undefined;
+            res.json({ ...user });
+          });
+        });
+      });
+    });
+  } else {
+    return res.status(403).json({
+      error: 'Not an operator!',
+      key: 'nonOperator'
+    });
+  }
+});
+
+app.delete('/drivers/delete/:id', async (req, res, next) => {
+  let token = null;
+  if (req.hasOwnProperty('headers') && req.headers.hasOwnProperty('authorization')) {
+    token = req.headers['authorization'];
+  } else {
+    return res.status(401).json({
+      error: 'Failed to authenticate token!',
+      key: 'missingToken'
+    });
+  }
+
+  const userFromToken = await getUserFromToken(token);
+
+  if (userFromToken.role === 'operator') {
+    db.serialize(() => {
+      db.get(`SELECT * FROM Driver WHERE id = '${req.params.id}'`, (error, user) => {
+        if (user !== undefined) {
+          if (user.operator_id !== userFromToken.id) {
+            return res.status(403).json({ error: 'Driver does not belong to this operator', 'key': 'notOwner' });
+          } else {
+            const deleteQuery = `DELETE FROM Driver WHERE id = ${req.params.id}`;
+
+            db.run(deleteQuery, (error, user) => {
+              if (error) {
+                return res.status(500).json({ error: 'Unexpected error', details: error });
+              }
+
+              res.json({ message: 'Successfully deleted' });
+            });
+          }
+        } else {
+          return res.status(404).json({ error: 'User does not exist', key: 'userNotFound'});
+        }
+      });
+    });
+  } else {
+    return res.status(403).json({
+      error: 'Not an operator!',
+      key: 'nonOperator'
+    });
+  }
+});
 
 // Periodic cleaning every hour here
 // const hourInMilliseconds = 3600;

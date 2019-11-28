@@ -1,57 +1,30 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import * as Location from 'expo-location';
-import * as Permissions from 'expo-permissions';
+import { StyleSheet } from 'react-native';
 
 import Login from './components/Login';
+import Stats from './components/Stats';
 
 export default class App extends React.Component {
   state = {
     user: null,
-    location: null,
-    token: null
-  }
-
-  componentDidMount() {
-    this._getLocationPermission();
-    Location.watchPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: 1000,
-      distanceInterval: 1,
-    }, location => {
-      this.setState({ location });
-    });
+    token: null,
+    socket: null
   }
 
   setAuth = ({ user, token }) => {
     this.setState({ user, token });
   }
 
-  render() {
-    const { location, user } = this.state;
-
-    return user === null ? <Login setAuth={this.setAuth} /> : (
-      <View style={styles.container}>
-        <Text>
-        {
-          location ? `Latitiude: ${location.coords.latitude}\n
-                      Longitude: ${location.coords.longitude}\n
-                      Speed: ${location.coords.speed * 3.6} KPH`
-                   : 'null'
-        }
-        </Text>
-      </View>
-    );
+  setSocket = (socket) => {
+    this.setState({ socket });
   }
 
-  _getLocationPermission = async () => {
-    let { status } = await Permissions.askAsync(Permissions.LOCATION);
-    if (status !== 'granted') {
-      this.setState({
-        errorMessage: 'Permission to access location was denied',
-      });
-    }
-  };
+  render() {
+    const { socket, token, user } = this.state;
+
+    return user === null ? <Login setAuth={this.setAuth} />
+                         : <Stats user={user} token={token} setSocket={this.setSocket} socket={socket} />;
+  }
 }
 
 const styles = StyleSheet.create({

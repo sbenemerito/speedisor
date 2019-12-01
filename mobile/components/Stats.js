@@ -38,7 +38,7 @@ export default class Stats extends React.Component {
         }, location => {
           socket.emit('stat update', {
             userDetails: user,
-            stats: location,
+            stats: location.coords,
             token
           });
 

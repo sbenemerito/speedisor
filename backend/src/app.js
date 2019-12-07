@@ -27,7 +27,7 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       first_name TEXT,
       last_name TEXT,
-      username TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       display_image TEXT,
       is_active INTEGER DEFAULT 1 NOT NULL,
@@ -41,16 +41,16 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       first_name TEXT,
       last_name TEXT,
-      username TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       display_image TEXT,
       is_active INTEGER DEFAULT 0 NOT NULL,
       date_created TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
       date_updated TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      plate_number TEXT NOT NULL,
-      address TEXT NOT NULL,
-      contact_number TEXT NOT NULL,
-      taxi_name TEXT NOT NULL,
+      plate_number TEXT NOT NULL UNIQUE,
+      address TEXT,
+      contact_number TEXT,
+      taxi_name TEXT NOT NULL UNIQUE,
       operator_id INTEGER,
       FOREIGN KEY(operator_id) REFERENCES Operator(id)
     )
@@ -59,6 +59,8 @@ db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS Violation (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      latitude REAL,
+      longitude REAL,
       location TEXT,
       max_speed REAL,
       driver_speed REAL,
@@ -124,7 +126,7 @@ const io = socketIO(server);
 io.on('connection', socket => {
   console.log('client connected on websocket');
 
-  socket.on('bind token', async (token) => {
+  socket.on('bind token', async ({ token }) => {
     const userFromToken = await getUserFromToken(token);
 
     socketMap[socket.id] = userFromToken;
@@ -137,22 +139,53 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('stat update', async ({ userDetails, stats, token }) => {
+  socket.on('stat update', async ({ userDetails, stats, readableLocation, token }) => {
     const userFromToken = await getUserFromToken(token);
 
     if (userFromToken.role === 'driver' && userDetails.id === userFromToken.id) {
       const operatorKey = `${userFromToken.operator_id}`;
 
       if (liveData[operatorKey] === undefined) {
-        liveData[operatorKey] = {};
+        liveData[operatorKey] = [];
       }
 
-      if (liveData[operatorKey][userFromToken.id] === undefined) {
-        liveData[operatorKey][userFromToken.id] = {};
-      }
+      let updated = false;
+      let tempData = liveData[operatorKey].map(item => {
+        if (item.userDetails.id === userDetails.id) {
+          updated = true;
+          return { userDetails, stats };
+        }
 
-      liveData[operatorKey][userFromToken.id] = stats;
+        return item;
+      });
+
+      if (!updated) tempData.push({ userDetails, stats, readableLocation });
+
+      liveData[operatorKey] = [ ...tempData ];
+
       socket.to(operatorKey).emit('new stats', liveData[operatorKey]);
+
+      let maxSpeed = 30;
+      const maxSpeedTable = {
+        'Ma-a': 40,
+        'McArthur Highway': 40,
+        'Davao-Bukidnon Rd': 60
+      };
+
+      if (readableLocation !== 'Davao City') {
+        Object.keys(maxSpeedTable).forEach(key => {
+          if (readableLocation.includes(key)) maxSpeed = maxSpeedTable[key];
+        });
+      }
+
+      const convertedSpeed = Math.round((stats.speed * 3.6) * 100) / 100;
+      if (convertedSpeed > maxSpeed) {
+        const violationQuery = `INSERT INTO Violation(latitude, longitude, location, max_speed, driver_speed, driver_id)
+                                VALUES(${stats.latitude}, ${stats.longitude}, '${readableLocation}', ${maxSpeed}, ${convertedSpeed}, ${userDetails.id})`;
+        db.run(violationQuery, (error, violation) => {
+          if (!error) console.log('NEW VIOLATION');
+        });
+      }
     }
   });
 
@@ -163,19 +196,24 @@ io.on('connection', socket => {
       if (socketMap[item] === socket.id) {
         disconnectedUser = socketMap[item];
         delete socketMap[item];
+
+        if (liveData[disconnectedUser.operator_id]) {
+          let filteredData = liveData[disconnectedUser.operator_id].filter(val => {
+            return val.userDetails.id !== disconnectedUser.id;
+          });
+
+          liveData[disconnectedUser.operator_id] = [...filteredData];
+        }
+
+        if (onlineMap[disconnectedUser.id]) {
+          onlineMap[disconnectedUser.id] = undefined;
+        }
+
         return true;
       }
 
       return false;
     });
-
-    if (liveDetails[disconnectedUser.operator_id]) {
-      liveDetails[disconnectedUser.operator_id][disconnectedUser.id] = undefined;
-    }
-
-    if (onlineMap[disconnectedUser.id]) {
-      onlineMap[disconnectedUser.id] = undefined;
-    }
   });
 });
 
@@ -336,11 +374,40 @@ app.get('/drivers', async (req, res, next) => {
 
   const userFromToken = await getUserFromToken(token);
 
+  if (userFromToken !== null && userFromToken.role === 'operator') {
+    const operatorKey = `${userFromToken.id}`;
+
+    db.serialize(() => {
+      db.all(`SELECT * FROM Driver WHERE operator_id = ${operatorKey}`, (error, drivers) => {
+        res.json(drivers);
+      });
+    });
+  } else {
+    return res.status(403).json({
+      error: 'Not an operator!',
+      key: 'nonOperator'
+    });
+  }
+});
+
+app.get('/drivers/live', async (req, res, next) => {
+  let token = null;
+  if (req.hasOwnProperty('headers') && req.headers.hasOwnProperty('authorization')) {
+    token = req.headers['authorization'];
+  } else {
+    return res.status(401).json({
+      error: 'Failed to authenticate token!',
+      key: 'missingToken'
+    });
+  }
+
+  const userFromToken = await getUserFromToken(token);
+
   if (userFromToken.role === 'operator') {
     const operatorKey = `${userFromToken.id}`;
 
     if (liveData[operatorKey] === undefined) {
-      liveData[operatorKey] = {};
+      liveData[operatorKey] = [];
     }
 
     res.json(liveData[operatorKey]);
@@ -400,7 +467,7 @@ app.post('/drivers/create', async (req, res, next) => {
             plate_number, address, contact_number, taxi_name, operator_id)
           VALUES (
             '${first_name || ''}', '${last_name || ''}', '${username}', '${hashedPassword}',
-            '${plate_number || ''}', '${address || ''}', '${contact_number || ''}', '${taxi_name || ''}', ${userFromToken.operator_id})
+            '${plate_number || ''}', '${address || ''}', '${contact_number || ''}', '${taxi_name || ''}', ${userFromToken.id})
         `;
 
         db.run(insertQuery, (error, user) => {
@@ -466,6 +533,40 @@ app.delete('/drivers/delete/:id', async (req, res, next) => {
     });
   }
 });
+
+
+// Violation
+app.get('/violations', async (req, res, next) => {
+  let token = null;
+  if (req.hasOwnProperty('headers') && req.headers.hasOwnProperty('authorization')) {
+    token = req.headers['authorization'];
+  } else {
+    return res.status(401).json({
+      error: 'Failed to authenticate token!',
+      key: 'missingToken'
+    });
+  }
+
+  const userFromToken = await getUserFromToken(token);
+
+  if (userFromToken.role === 'operator') {
+    const operatorKey = `${userFromToken.id}`;
+
+    db.serialize(() => {
+      db.all(`SELECT * FROM Violation
+              INNER JOIN Driver ON Violation.driver_id = Driver.id
+              WHERE operator_id = ${operatorKey}`, (error, drivers) => {
+        res.json(drivers);
+      });
+    });
+  } else {
+    return res.status(403).json({
+      error: 'Not an operator!',
+      key: 'nonOperator'
+    });
+  }
+});
+
 
 // Periodic cleaning every hour here
 // const hourInMilliseconds = 3600;

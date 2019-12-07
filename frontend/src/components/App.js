@@ -4,6 +4,7 @@ import logo from '../assets/logo.png';
 
 import Login from './Login';
 import Stats from './Stats';
+import Drivers from './Drivers';
 import Violations from './Violations';
 
 
@@ -12,7 +13,7 @@ class App extends React.Component {
     user: null,
     token: null,
     socket: null,
-    screen: 'drivers',
+    screen: 'stats',
     monitoringData: null
   }
 
@@ -37,7 +38,7 @@ class App extends React.Component {
 
     const screenMap = {
       stats: <Stats user={user} token={token} socket={socket} setSocket={this.setSocket} monitoringData={monitoringData}/>,
-      drivers: <h1>Drivers</h1>,
+      drivers: <Drivers token={token} />,
       violations: <Violations token={token} />
     }
 

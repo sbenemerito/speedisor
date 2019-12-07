@@ -15,8 +15,7 @@ class Stats extends React.Component {
 
     api.get('/violations', { headers: { Authorization: token } }).then(response => {
       let currentLocationData = response.data.map(item => {
-        const parsedLocation = item.location.split(', ').map(x => parseFloat(x).toFixed(2));
-        return { latitude: parsedLocation[0], longitude: parsedLocation[1] };
+        return { latitude: item.latitude, longitude: item.longitude };
       });
 
       this.setState({ violationsData: response.data, locationData: currentLocationData });

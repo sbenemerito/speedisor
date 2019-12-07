@@ -55,15 +55,6 @@ class Stats extends React.Component {
     });
   }
 
-  // componentDidUpdate() {
-  //   const { monitoringData } = this.props;
-
-  //   if (monitoringData !== null) {
-  //     const { liveData, locationData } = monitoringData;
-  //     this.setState({ liveData, locationData });
-  //   }
-  // }
-
   render() {
     const { liveData, locationData } = this.state;
     const center = locationData.length > 0 ? { lat: locationData[0].latitude, lng: locationData[0].longitude }
@@ -71,7 +62,7 @@ class Stats extends React.Component {
 
     return (
       <div className="main-container">
-      <h1 className="title">Live Monitoring</h1>
+        <h1 className="title">Live Monitoring</h1>
         <div style={mapStyles}>
           <Map
             google={this.props.google}
@@ -112,7 +103,7 @@ class Stats extends React.Component {
                       <td>{ item.userDetails.taxi_name }</td>
                       <td>{ item.userDetails.first_name } { item.userDetails.last_name }</td>
                       <td>{ item.userDetails.plate_number }</td>
-                      <td>{ item.stats.latitude }, { item.stats.longitude }</td>
+                      <td>{ item.readableLocation }</td>
                       <td>{ Math.round((item.stats.speed * 3.6) * 100) / 100 }</td>
                     </tr>
                   )

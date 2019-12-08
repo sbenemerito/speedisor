@@ -434,7 +434,8 @@ app.post('/drivers/create', async (req, res, next) => {
 
   const userFromToken = await getUserFromToken(token);
 
-  if (userFromToken.role === 'operator') {
+  console.log(token, 'token');
+  if (userFromToken && userFromToken.role === 'operator') {
     const {
       first_name, last_name, username, password, password2,
       plate_number, address, contact_number, taxi_name

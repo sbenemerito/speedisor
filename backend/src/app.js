@@ -133,7 +133,7 @@ io.on('connection', socket => {
 
     socketMap[socket.id] = userFromToken;
 
-    if (userFromToken.role === 'operator') {
+    if (userFromToken && userFromToken.role === 'operator') {
       socket.join(`${userFromToken.id}`);
       onlineMap[`oid${userFromToken.id}`] = true;
     } else {

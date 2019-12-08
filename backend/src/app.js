@@ -195,31 +195,35 @@ io.on('connection', socket => {
     let disconnectedUser = null;
 
     Object.keys(socketMap).some(item => {
+      console.log('inside1');
       if (socketMap[item] === socket.id) {
         disconnectedUser = socketMap[item];
+        console.log('inside2');
         delete socketMap[item];
-
         return true;
       }
 
       return false;
     });
 
-    if (liveData[disconnectedUser.operator_id]) {
-      let filteredData = liveData[disconnectedUser.operator_id].filter(val => {
-        return val.userDetails.id !== disconnectedUser.id;
-      });
+    console.log('outside');
+    if (disconnectedUser) {
+      if (liveData[disconnectedUser.operator_id]) {
+        let filteredData = liveData[disconnectedUser.operator_id].filter(val => {
+          return val.userDetails.id !== disconnectedUser.id;
+        });
 
-      liveData[disconnectedUser.operator_id] = [...filteredData];
-    }
+        liveData[disconnectedUser.operator_id] = [...filteredData];
+      }
 
-    let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
-    const mapKey = `${keyPrefix}${disconnectedUser.id}`;
+      let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
+      const mapKey = `${keyPrefix}${disconnectedUser.id}`;
 
-    console.log(mapKey, 'mapKey');
+      console.log(mapKey, 'mapKey');
 
-    if (onlineMap[mapKey]) {
-      onlineMap[mapKey] = undefined;
+      if (onlineMap[mapKey]) {
+        onlineMap[mapKey] = undefined;
+      }
     }
   });
 });

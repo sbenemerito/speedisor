@@ -155,7 +155,7 @@ io.on('connection', socket => {
       let tempData = liveData[operatorKey].map(item => {
         if (item.userDetails.id === userDetails.id) {
           updated = true;
-          return { userDetails, stats };
+          return { userDetails, stats, readableLocation };
         }
 
         return item;

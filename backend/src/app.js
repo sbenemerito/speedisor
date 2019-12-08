@@ -199,28 +199,28 @@ io.on('connection', socket => {
         disconnectedUser = socketMap[item];
         delete socketMap[item];
 
-        if (liveData[disconnectedUser.operator_id]) {
-          let filteredData = liveData[disconnectedUser.operator_id].filter(val => {
-            return val.userDetails.id !== disconnectedUser.id;
-          });
-
-          liveData[disconnectedUser.operator_id] = [...filteredData];
-        }
-
-        let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
-        const mapKey = `${keyPrefix}${disconnectedUser.id}`;
-
-        console.log(mapKey, 'mapKey');
-
-        if (onlineMap[mapKey]) {
-          onlineMap[mapKey] = undefined;
-        }
-
         return true;
       }
 
       return false;
     });
+
+    if (liveData[disconnectedUser.operator_id]) {
+      let filteredData = liveData[disconnectedUser.operator_id].filter(val => {
+        return val.userDetails.id !== disconnectedUser.id;
+      });
+
+      liveData[disconnectedUser.operator_id] = [...filteredData];
+    }
+
+    let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
+    const mapKey = `${keyPrefix}${disconnectedUser.id}`;
+
+    console.log(mapKey, 'mapKey');
+
+    if (onlineMap[mapKey]) {
+      onlineMap[mapKey] = undefined;
+    }
   });
 });
 

@@ -207,7 +207,8 @@ io.on('connection', socket => {
           liveData[disconnectedUser.operator_id] = [...filteredData];
         }
 
-        if (onlineMap[disconnectedUser.id]) {
+        let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
+        if (onlineMap[`${keyPrefix}${disconnectedUser.id}`]) {
           onlineMap[disconnectedUser.id] = undefined;
         }
 
@@ -434,7 +435,6 @@ app.post('/drivers/create', async (req, res, next) => {
 
   const userFromToken = await getUserFromToken(token);
 
-  console.log(token, 'token');
   if (userFromToken && userFromToken.role === 'operator') {
     const {
       first_name, last_name, username, password, password2,

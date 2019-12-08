@@ -208,8 +208,12 @@ io.on('connection', socket => {
         }
 
         let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
-        if (onlineMap[`${keyPrefix}${disconnectedUser.id}`]) {
-          onlineMap[disconnectedUser.id] = undefined;
+        const mapKey = `${keyPrefix}${disconnectedUser.id}`;
+
+        console.log(mapKey, 'mapKey');
+
+        if (onlineMap[mapKey]) {
+          onlineMap[mapKey] = undefined;
         }
 
         return true;

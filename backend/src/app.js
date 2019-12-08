@@ -194,20 +194,15 @@ io.on('connection', socket => {
   socket.on('disconnect', () => {
     let disconnectedUser = null;
 
-    Object.keys(socketMap).some(item => {
-      console.log('inside1');
-      if (socketMap[item] === socket.id) {
+    Object.keys(socketMap).forEach(item => {
+      if (item === socket.id) {
         disconnectedUser = socketMap[item];
-        console.log('inside2');
-        delete socketMap[item];
-        return true;
       }
-
-      return false;
     });
 
-    console.log('outside');
     if (disconnectedUser) {
+      delete socketMap[socket.id];
+
       if (liveData[disconnectedUser.operator_id]) {
         let filteredData = liveData[disconnectedUser.operator_id].filter(val => {
           return val.userDetails.id !== disconnectedUser.id;
@@ -218,8 +213,6 @@ io.on('connection', socket => {
 
       let keyPrefix = disconnectedUser.operator_id === undefined ? 'oid' : 'did';
       const mapKey = `${keyPrefix}${disconnectedUser.id}`;
-
-      console.log(mapKey, 'mapKey');
 
       if (onlineMap[mapKey]) {
         onlineMap[mapKey] = undefined;

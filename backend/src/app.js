@@ -117,6 +117,8 @@ const getUserFromToken = (token) => {
 let liveData = {};
 let socketMap = {};
 let onlineMap = {};
+let recentViolators = [];
+
 
 app.get('/', (req, res) => res.json({ msg: 'API is working!' }));
 
@@ -170,8 +172,15 @@ io.on('connection', socket => {
       let maxSpeed = 30;
       const maxSpeedTable = {
         'Ma-a': 40,
+        'Carlos P. Garcia National Highway': 60,
+        'Magtuod': 60,
         'McArthur Highway': 40,
-        'Davao-Bukidnon Rd': 60
+        'MacArthur Hwy': 40,
+        'Macarthur Hway': 40,
+        'Diversion Road': 60,
+        'Diversion Rd': 60,
+        'Davao-Bukidnon Rd': 60,
+        'Davao-Bukidnon Road': 60
       };
 
       if (readableLocation !== 'Davao City') {
@@ -181,11 +190,11 @@ io.on('connection', socket => {
       }
 
       const convertedSpeed = Math.round((stats.speed * 3.6) * 100) / 100;
-      if (convertedSpeed > maxSpeed) {
+      if (convertedSpeed > maxSpeed && recentViolators.indexOf(`did${userDetails.id}`) === -1) {
         const violationQuery = `INSERT INTO Violation(latitude, longitude, location, max_speed, driver_speed, driver_id)
                                 VALUES(${stats.latitude}, ${stats.longitude}, '${readableLocation}', ${maxSpeed}, ${convertedSpeed}, ${userDetails.id})`;
         db.run(violationQuery, (error, violation) => {
-          if (!error) console.log('NEW VIOLATION');
+          if (!error) recentViolators.push(`did${userDetails.id}`);
         });
       }
     }
@@ -572,11 +581,11 @@ app.get('/violations', async (req, res, next) => {
 });
 
 
-// Periodic cleaning every hour here
-// const hourInMilliseconds = 3600;
-// const cleanData = setInterval(() => {
-//   console.log('clean');
-// }, hourInMilliseconds);
+// Periodic cleaning every 5 minutes
+const delayInMilliseconds = 300000;
+const cleanData = setInterval(() => {
+  recentViolators = [];
+}, delayInMilliseconds);
 
 // Serve
 server.listen(PORT, () => {

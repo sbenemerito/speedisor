@@ -566,10 +566,63 @@ app.get('/violations', async (req, res, next) => {
     const operatorKey = `${userFromToken.id}`;
 
     db.serialize(() => {
-      db.all(`SELECT * FROM Violation
-              INNER JOIN Driver ON Violation.driver_id = Driver.id
-              WHERE operator_id = ${operatorKey}`, (error, drivers) => {
-        res.json(drivers);
+      db.all(`SELECT A.*, B.first_name, B.last_name, B.plate_number, B.taxi_name
+              FROM Violation AS A
+              INNER JOIN Driver AS B ON A.driver_id = B.id
+              WHERE operator_id = ${operatorKey}`, (error, violations) => {
+        res.json(violations);
+      });
+    });
+  } else {
+    return res.status(403).json({
+      error: 'Not an operator!',
+      key: 'nonOperator'
+    });
+  }
+});
+
+app.delete('/violations/delete/:id', async (req, res, next) => {
+  let token = null;
+  if (req.hasOwnProperty('headers') && req.headers.hasOwnProperty('authorization')) {
+    token = req.headers['authorization'];
+  } else {
+    return res.status(401).json({
+      error: 'Failed to authenticate token!',
+      key: 'missingToken'
+    });
+  }
+
+  const userFromToken = await getUserFromToken(token);
+
+  if (userFromToken.role === 'operator') {
+    const operatorKey = `${userFromToken.id}`;
+
+    db.serialize(() => {
+      db.get(`SELECT * FROM Violation
+              INNER JOIN Driver on Violation.driver_id = Driver.id
+              WHERE Violation.id = ${req.params.id}`, (error, violation) => {
+        if (violation !== undefined) {
+          if (violation.operator_id !== userFromToken.id) {
+            return res.status(403).json({ error: 'Violation does not belong to this operator', 'key': 'notOwner' });
+          } else {
+            const deleteQuery = `DELETE FROM Violation WHERE id = ${req.params.id}`;
+
+            db.run(deleteQuery, (error, violation) => {
+              if (error) {
+                return res.status(500).json({ error: 'Unexpected error', details: error });
+              }
+
+              db.all(`SELECT A.*, B.first_name, B.last_name, B.plate_number, B.taxi_name
+                      FROM Violation AS A
+                      INNER JOIN Driver AS B ON A.driver_id = B.id
+                      WHERE operator_id = ${operatorKey}`, (error, violations) => {
+                res.json(violations);
+              });
+            });
+          }
+        } else {
+          return res.status(404).json({ error: 'Violation does not exist', key: 'violationNotFound'});
+        }
       });
     });
   } else {

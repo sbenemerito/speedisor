@@ -7,7 +7,8 @@ import api from '../utils/SpeedisorApi';
 class Stats extends React.Component {
   state = {
     violationsData: [],
-    locationData: []
+    locationData: [],
+    loadingMap: {}
   }
 
   componentDidMount() {
@@ -25,7 +26,7 @@ class Stats extends React.Component {
   }
 
   render() {
-    const { violationsData, locationData } = this.state;
+    const { violationsData, locationData, loadingMap } = this.state;
     const center = locationData.length > 0 ? { lat: locationData[0].latitude, lng: locationData[0].longitude }
                                            : { lat: 7.0862388, lng: 125.6134375 };
 
@@ -57,25 +58,55 @@ class Stats extends React.Component {
               <tr>
                 <th>#</th>
                 <th>Timestamp</th>
+                <th>Driver Name</th>
+                <th>Plate #</th>
                 <th>Taxi</th>
                 <th>Location</th>
                 <th>Speed Limit (KPH)</th>
                 <th>Driver Speed (KPH)</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {
                 violationsData.map((item, index) => {
-                  return (
-                    <tr key={ item.id }>
-                      <td>{ index + 1 }</td>
-                      <td>{ item.date_created }</td>
-                      <td>{ item.taxi_name }</td>
-                      <td>{ item.location }</td>
-                      <td>{ item.max_speed }</td>
-                      <td>{ item.driver_speed }</td>
-                    </tr>
-                  )
+                  if (loadingMap[item.id]) {
+                    return (
+                      <tr key={ item.id }>
+                        <td>{ index + 1 }</td>
+                        <td>{ item.date_created }</td>
+                        <td>{ item.first_name } { item.last_name }</td>
+                        <td>{ item.plate_number }</td>
+                        <td>{ item.taxi_name }</td>
+                        <td>{ item.location }</td>
+                        <td>{ item.max_speed }</td>
+                        <td>{ item.driver_speed }</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="icon">
+                            <i className="fas fa-ellipsis-h"></i>
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  } else {
+                    return (
+                      <tr key={ item.id }>
+                        <td>{ item.id }</td>
+                        <td>{ item.date_created }</td>
+                        <td>{ item.first_name } { item.last_name }</td>
+                        <td>{ item.plate_number }</td>
+                        <td>{ item.taxi_name }</td>
+                        <td>{ item.location }</td>
+                        <td>{ item.max_speed }</td>
+                        <td>{ item.driver_speed }</td>
+                        <td onClick={() => this.deleteViolation(item.id)} style={{ textAlign: 'center' }}>
+                          <span className="icon">
+                            <i className="fas fa-trash-alt"></i>
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  }
                 })
               }
             </tbody>
@@ -83,6 +114,25 @@ class Stats extends React.Component {
         </div>
       </div>
     );
+  }
+
+  deleteViolation = (id) => {
+    const { token } = this.props;
+    const { loadingMap } = this.state;
+
+    let newLoadingMap = { ... loadingMap };
+    newLoadingMap[id] = true;
+
+    this.setState({ loadingMap: newLoadingMap });
+
+    api.delete(`/violations/delete/${id}`, { headers: { Authorization: token } }).then(response => {
+      newLoadingMap[id] = undefined;
+      this.setState({ loadingMap: newLoadingMap, violationsData: response.data });
+    }).catch(error => {
+      newLoadingMap[id] = undefined;
+      this.setState({ loadingMap: newLoadingMap });
+      console.log(error, 'error');
+    });
   }
 }
 

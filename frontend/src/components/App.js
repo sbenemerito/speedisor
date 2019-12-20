@@ -43,7 +43,7 @@ class App extends React.Component {
     }
 
     return (
-      <div className="container main-container">
+      <div className="main-container">
         <img src={logo} alt="Logo" style={{ width: '5%' }} />
         <h1 className="title">Speedisor</h1>
         <p className="subtitle">

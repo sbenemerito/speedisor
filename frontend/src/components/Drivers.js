@@ -6,7 +6,6 @@ import api from '../utils/SpeedisorApi';
 class Drivers extends React.Component {
   state = {
     driverData: [],
-    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6Im9wZXJhdG9yIiwiaWF0IjoxNTc1NjgwNzkwLCJleHAiOjE1NzU3NjcxOTB9.br3h8Nxti-oANzwuY92ZieOe7_dQYiFvdjMsTZ4IghQ"
   }
 
   handleInput = (field, event) => {
@@ -17,25 +16,34 @@ class Drivers extends React.Component {
   }
 
   handleSubmit = (event) => {
-    // const { token } = this.props;
-    const { token } = this.state;
-    console.log(token, 'token');
+    const { token } = this.props;
 
     event.preventDefault();
 
     api.post('/drivers/create', this.state, { headers: { Authorization: token } }).then(response => {
       let currentData = this.state.driverData;
       currentData.push(response.data);
+      document.getElementById('auth-form').reset();
 
-      this.setState({ driverData: currentData });
+      this.setState({
+        username: null,
+        password: null,
+        password2: null,
+        first_name: null,
+        last_name: null,
+        taxi_name: null,
+        plate_number: null,
+        address: null,
+        contact_number: null,
+        driverData: currentData
+      });
     }).catch(error => {
       alert(error.response.data.error);
     });
   }
 
   componentDidMount() {
-    // const { token } = this.props;
-    const { token } = this.state;
+    const { token } = this.props;
 
     api.get('/drivers', { headers: { Authorization: token } }).then(response => {
       this.setState({ driverData: response.data });
@@ -82,7 +90,7 @@ class Drivers extends React.Component {
         <hr style={{ background: 'black' }} />
         <h1 className="title">Add Driver</h1>
         
-        <form onSubmit={this.handleSubmit}>
+        <form onSubmit={this.handleSubmit} id="auth-form">
           <div className="field">
             <label className="label">Username</label>
             <div className="control has-icons-left">
